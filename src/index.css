@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans text-slateindigo-800 bg-lavender-50;
+    min-height: 100vh;
+  }
+
+  .dark body {
+    @apply text-slateindigo-50;
+    background: linear-gradient(135deg, #1a1c2e 0%, #161325 100%);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-lavender-300 rounded-full;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-lavender-700;
+  }
+}
+
+@layer components {
+  .clay-card {
+    @apply bg-white/80 backdrop-blur-md border border-lavender-100/60 rounded-3xl shadow-clay;
+  @apply dark:bg-slateindigo-900/60 dark:border-lavender-700/30;
+  box-shadow: 0 10px 30px rgba(103, 110, 144, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+  }
+
+  .dark .clay-card {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  }
+
+  .clay-card-sm {
+    @apply bg-white/70 backdrop-blur-sm border border-lavender-100/50 rounded-2xl shadow-clay-sm;
+    @apply dark:bg-slateindigo-900/50 dark:border-lavender-700/20;
+  }
+
+  .clay-button {
+    @apply px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 active:scale-95;
+    @apply bg-lavender-600 text-white hover:bg-lavender-700 shadow-clay-sm;
+    @apply dark:bg-lavender-600 dark:hover:bg-lavender-500;
+  }
+
+  .clay-button-secondary {
+    @apply px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 active:scale-95;
+    @apply bg-lavender-100 text-lavender-700 hover:bg-lavender-200;
+    @apply dark:bg-slateindigo-800 dark:text-lavender-300 dark:hover:bg-slateindigo-700;
+  }
+
+  .clay-input {
+    @apply w-full px-4 py-3 rounded-xl bg-white/60 border border-lavender-200/50;
+    @apply focus:outline-none focus:ring-2 focus:ring-lavender-400 focus:border-transparent;
+    @apply transition-all duration-200 placeholder:text-slateindigo-400;
+    @apply dark:bg-slateindigo-800/60 dark:border-lavender-700/30 dark:text-slateindigo-50;
+  }
+
+  .pill-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .page-bg {
+    background: linear-gradient(135deg, #F4F6FF 0%, #E8ECFB 100%);
+  }
+
+  .dark .page-bg {
+    background: linear-gradient(135deg, #1a1c2e 0%, #161325 100%);
+  }
+
+  .glass-nav {
+    @apply bg-white/70 backdrop-blur-xl border-b border-lavender-100/50;
+    @apply dark:bg-slateindigo-900/70 dark:border-lavender-700/20;
+  }
+
+  .progress-ring-track {
+    @apply text-lavender-100 dark:text-slateindigo-800;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bg-grid {
+    background-image: radial-gradient(circle, rgba(128, 117, 255, 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
