@@ -24,9 +24,8 @@ export function FlashcardsHubPage() {
   
   // Edit state
   const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
-
   const [loading, setLoading] = useState(true);
-
+  
   // Study mode
   const [studyMode, setStudyMode] = useState(false);
   const [studyIndex, setStudyIndex] = useState(0);
@@ -35,24 +34,67 @@ export function FlashcardsHubPage() {
   const [unknownCount, setUnknownCount] = useState(0);
 
   const fetchFlashcards = useCallback(async () => {
-    let query = supabase.from('flashcards').select('*').order('created_at', { ascending: false });
-    if (profile?.id) {
-      query = query.or(`user_id.eq.${profile.id},user_id.is.null`);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = profile?.id || user?.id || null;
+      let query = supabase.from('flashcards').select('*').order('created_at', { ascending: false });
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else {
+        query = query.is('user_id', null);
+      }
+      const { data, error } = await query;
+      if (error) console.error(error.message);
+      if (data) setFlashcards(data as Flashcard[]);
+    } catch (err) {
+      console.error(err);
     }
-    const { data, error } = await query;
-    if (error) console.error(error.message);
-    if (data) setFlashcards(data as Flashcard[]);
-  }, [profile]);
+  }, [profile?.id]);
 
   const fetchModules = useCallback(async () => {
-    const { data } = await supabase.from('modules').select('*').order('name');
-    if (data) setModules(data as Module[]);
-  }, []);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = profile?.id || user?.id || null;
+      let query = supabase.from('modules').select('*').order('name');
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else {
+        query = query.is('user_id', null);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching modules:', error);
+        return;
+      }
+      if (data) setModules(data as Module[]);
+    } catch (err) {
+      console.error('Exception fetching modules:', err);
+    }
+  }, [profile?.id]);
 
   const fetchLessons = useCallback(async () => {
-    const { data } = await supabase.from('lessons').select('*').order('title');
-    if (data) setLessons(data as Lesson[]);
-  }, []);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = profile?.id || user?.id || null;
+      let query = supabase.from('lessons').select('*').order('title');
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else {
+        query = query.is('user_id', null);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching lessons:', error);
+        return;
+      }
+      if (data) setLessons(data as Lesson[]);
+    } catch (err) {
+      console.error('Exception fetching lessons:', err);
+    }
+  }, [profile?.id]);
 
   useEffect(() => {
     Promise.all([fetchFlashcards(), fetchModules(), fetchLessons()]).finally(() => setLoading(false));
@@ -60,22 +102,28 @@ export function FlashcardsHubPage() {
 
   const addFlashcard = async () => {
     if (!newCard.question.trim() || !newCard.answer.trim()) return;
-    const { data, error } = await supabase
-      .from('flashcards')
-      .insert({
-        user_id: profile?.id || null,
-        question: newCard.question,
-        answer: newCard.answer,
-        lesson_id: newCard.lessonId || null,
-        module_id: newCard.moduleId || null,
-      })
-      .select()
-      .single();
-    if (error) { showToast(error.message, 'error'); return; }
-    if (data) setFlashcards((prev) => [data as Flashcard, ...prev]);
-    setNewCard({ question: '', answer: '', lessonId: '', moduleId: '' });
-    setShowAddModal(false);
-    showToast('Flashcard added successfully', 'success');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = profile?.id || user?.id || null;
+      const { data, error } = await supabase
+        .from('flashcards')
+        .insert({
+          user_id: userId,
+          question: newCard.question,
+          answer: newCard.answer,
+          lesson_id: newCard.lessonId || null,
+          module_id: newCard.moduleId || null,
+        })
+        .select()
+        .single();
+      if (error) { showToast(error.message, 'error'); return; }
+      if (data) setFlashcards((prev) => [data as Flashcard, ...prev]);
+      setNewCard({ question: '', answer: '', lessonId: '', moduleId: '' });
+      setShowAddModal(false);
+      showToast('Flashcard added successfully', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Error adding flashcard', 'error');
+    }
   };
 
   const updateFlashcard = async () => {
@@ -89,7 +137,6 @@ export function FlashcardsHubPage() {
         module_id: editingCard.module_id || null,
       })
       .eq('id', editingCard.id);
-
     if (error) { showToast(error.message, 'error'); return; }
     setFlashcards((prev) => prev.map((f) => f.id === editingCard.id ? editingCard : f));
     setEditingCard(null);
@@ -127,7 +174,6 @@ export function FlashcardsHubPage() {
     const nextUnknown = !known ? unknownCount + 1 : unknownCount;
     if (known) setKnownCount(nextKnown);
     else setUnknownCount(nextUnknown);
-
     if (studyIndex < filteredCards.length - 1) {
       setStudyIndex((i) => i + 1);
       setShowAnswer(false);
@@ -159,7 +205,6 @@ export function FlashcardsHubPage() {
               <span className="pill-badge bg-coral-500/15 text-coral-600">{unknownCount} ✗</span>
             </div>
           </div>
-
           <div
             className="clay-card p-8 min-h-[300px] flex flex-col items-center justify-center cursor-pointer select-none"
             onClick={() => setShowAnswer(!showAnswer)}
@@ -181,7 +226,6 @@ export function FlashcardsHubPage() {
               </>
             )}
           </div>
-
           {showAnswer && (
             <div className="flex gap-3 mt-4 animate-slide-up">
               <button onClick={() => markCard(false)} className="flex-1 py-4 rounded-2xl bg-coral-500/15 text-coral-600 font-semibold flex items-center justify-center gap-2 hover:bg-coral-500/25 transition-all active:scale-95">
@@ -192,7 +236,6 @@ export function FlashcardsHubPage() {
               </button>
             </div>
           )}
-
           <div className="mt-4 h-2 rounded-full bg-lavender-100 dark:bg-slateindigo-800 overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-lavender-500 to-lavender-600 rounded-full transition-all"
@@ -254,7 +297,7 @@ export function FlashcardsHubPage() {
           <option value="all">All modules</option>
           {modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-
+        
         {/* فلتر الدروس الجديد (All Lessons) */}
         <select
           value={filterLesson}
@@ -367,7 +410,6 @@ export function FlashcardsHubPage() {
                     <option key={l.id} value={l.id}>{l.title}</option>
                   ))}
                 </select>
-
                 <select
                   value={newCard.moduleId}
                   onChange={(e) => setNewCard((prev) => ({ ...prev, moduleId: e.target.value }))}
@@ -425,7 +467,6 @@ export function FlashcardsHubPage() {
                     <option key={l.id} value={l.id}>{l.title}</option>
                   ))}
                 </select>
-
                 <select
                   value={editingCard.module_id || ''}
                   onChange={(e) => setEditingCard({ ...editingCard, module_id: e.target.value })}

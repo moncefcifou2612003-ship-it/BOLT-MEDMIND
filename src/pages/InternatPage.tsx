@@ -56,7 +56,6 @@ const DEFAULT_PERIODES: Periode[] = [
 export function InternatPage() {
   const { profile } = useAuth();
   const { showToast } = useToast();
-
   const [periodes, setPeriodes] = useState<Periode[]>(DEFAULT_PERIODES);
   const [selectedPeriodeId, setSelectedPeriodeId] = useState<number | null>(1);
   
@@ -64,28 +63,23 @@ export function InternatPage() {
   const [tempService, setTempService] = useState('');
   const [tempStart, setTempStart] = useState('');
   const [tempEnd, setTempEnd] = useState('');
-
   const [notes, setNotes] = useState<StageNote[]>([]);
 
   const fetchPeriodes = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = profile?.id || user?.id || null;
-
       let query = supabase.from('internat_periodes').select('*').order('id', { ascending: true });
       if (userId) {
         query = query.eq('user_id', userId);
       } else {
         query = query.is('user_id', null);
       }
-
       const { data, error } = await query;
-
       if (error) {
         console.error('Error fetching periodes:', error);
         return;
       }
-
       if (data && data.length > 0) {
         const mapped: Periode[] = data.map((p: any) => ({
           id: p.id,
@@ -116,21 +110,17 @@ export function InternatPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = profile?.id || user?.id || null;
-
       let query = supabase.from('internat_notes').select('*').order('created_at', { ascending: false });
       if (userId) {
         query = query.eq('user_id', userId);
       } else {
         query = query.is('user_id', null);
       }
-
       const { data, error } = await query;
-
       if (error) {
         console.error('Error fetching notes:', error);
         return;
       }
-
       if (data) {
         const mappedNotes: StageNote[] = data.map((n: any) => ({
           id: n.id,
@@ -159,7 +149,6 @@ export function InternatPage() {
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string>('');
   
   const [activeNoteModal, setActiveNoteModal] = useState<StageNote | null>(null);
-
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [internatEntries, setInternatEntries] = useState<InternatScheduleEntry[]>([]);
@@ -171,26 +160,47 @@ export function InternatPage() {
   });
 
   const fetchEvents = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = profile?.id || user?.id || null;
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1).toISOString().split('T')[0];
     const lastDay = new Date(year, month + 1, 0).toISOString().split('T')[0];
-    const { data } = await supabase
+    
+    let query = supabase
       .from('calendar_events')
       .select('*')
       .gte('date', firstDay)
       .lte('date', lastDay)
       .order('date');
+      
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      query = query.is('user_id', null);
+    }
+    
+    const { data } = await query;
     if (data) setEvents(data as CalendarEvent[]);
-  }, [currentDate]);
+  }, [currentDate, profile?.id]);
 
   const fetchInternatEntries = useCallback(async () => {
-    const { data } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = profile?.id || user?.id || null;
+    
+    let query = supabase
       .from('internat_schedule')
       .select('*')
       .order('start_date');
+      
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      query = query.is('user_id', null);
+    }
+    const { data } = await query;
     if (data) setInternatEntries(data as InternatScheduleEntry[]);
-  }, []);
+  }, [profile?.id]);
 
   useEffect(() => {
     fetchEvents();
@@ -210,7 +220,6 @@ export function InternatPage() {
     if (!newEvent.title.trim()) return;
     const { data: { user } } = await supabase.auth.getUser();
     const userId = profile?.id || user?.id || null;
-
     const { error } = await supabase.from('calendar_events').insert({
       user_id: userId,
       date: newEvent.date,
@@ -243,9 +252,11 @@ export function InternatPage() {
   const monthName = currentDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-  const startWeekday = firstDayOfMonth.getDay();
-  const todayStr = new Date().toISOString().split('T')[0];
+  
+  // بداية الأسبوع من الأحد (Dim)
+  const startWeekday = firstDayOfMonth.getDay(); 
 
+  const todayStr = new Date().toISOString().split('T')[0];
   const days: (string | null)[] = [];
   for (let i = 0; i < startWeekday; i++) days.push(null);
   for (let d = 1; d <= daysInMonth; d++) {
@@ -263,7 +274,6 @@ export function InternatPage() {
   const handleSaveEdit = async (id: number) => {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = profile?.id || user?.id || null;
-
     const { error } = await supabase
       .from('internat_periodes')
       .upsert({
@@ -274,12 +284,10 @@ export function InternatPage() {
         start_date: tempStart,
         end_date: tempEnd,
       });
-
     if (error) {
       showToast(error.message, 'error');
       return;
     }
-
     setPeriodes(periodes.map(p => p.id === id ? { ...p, service: tempService, startDate: tempStart, endDate: tempEnd } : p));
     setEditingPeriodeId(null);
     showToast('Stage mis à jour et enregistré avec succès', 'success');
@@ -288,7 +296,7 @@ export function InternatPage() {
   const selectedPeriode = periodes.find(p => p.id === selectedPeriodeId);
   const todayDateStr = new Date().toISOString().split('T')[0];
   const currentActiveStage = periodes.find(p => todayDateStr >= p.startDate && todayDateStr <= p.endDate) || periodes[0];
-
+  
   const calculateRemainingDays = (endDateStr: string) => {
     const today = new Date(todayDateStr);
     const end = new Date(endDateStr);
@@ -339,28 +347,23 @@ export function InternatPage() {
   const handleSaveNote = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = profile?.id || user?.id || null;
-
     if (!selectedPeriodeId || !newNoteTitle.trim()) {
       showToast('Veuillez remplir le titre', 'error');
       return;
     }
-
     const d = new Date();
     const formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-
+    
     if (editingNoteId) {
-      // تعديل نوت موجودة مسبقاً
       const { error } = await supabase.from('internat_notes').update({
         title: newNoteTitle,
         content: newNoteContent,
         image_url: uploadedImagePreview || null,
       }).eq('id', editingNoteId);
-
       if (error) {
         showToast(error.message, 'error');
         return;
       }
-
       setNotes(notes.map(n => n.id === editingNoteId ? {
         ...n,
         title: newNoteTitle,
@@ -369,7 +372,6 @@ export function InternatPage() {
       } : n));
       showToast('Note modifiée avec succès', 'success');
     } else {
-      // إضافة نوت جديدة
       const generatedId = Date.now().toString();
       const { error } = await supabase.from('internat_notes').insert({
         id: generatedId,
@@ -380,12 +382,10 @@ export function InternatPage() {
         image_url: uploadedImagePreview || null,
         date: formattedDate,
       });
-
       if (error) {
         showToast(error.message, 'error');
         return;
       }
-
       const newNote: StageNote = {
         id: generatedId,
         periodeId: selectedPeriodeId,
@@ -394,11 +394,9 @@ export function InternatPage() {
         imageUrl: uploadedImagePreview,
         date: formattedDate
       };
-
       setNotes([newNote, ...notes]);
       showToast('Note de stage ajoutée avec succès', 'success');
     }
-
     setNewNoteTitle('');
     setNewNoteContent('');
     setUploadedImagePreview('');
@@ -408,17 +406,14 @@ export function InternatPage() {
 
   const deleteNote = async (noteId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-
     const { error } = await supabase
       .from('internat_notes')
       .delete()
       .eq('id', noteId);
-
     if (error) {
       showToast(error.message, 'error');
       return;
     }
-
     setNotes(notes.filter(n => n.id !== noteId));
     if (activeNoteModal?.id === noteId) {
       setActiveNoteModal(null);
@@ -449,7 +444,6 @@ export function InternatPage() {
             );
           })}
         </div>
-
         {selectedPeriode && (
           <div className="bg-white dark:bg-[#1E293B]/80 p-5 rounded-3xl shadow-clay border border-lavender-200/60 dark:border-slate-700/60 space-y-4 animate-fadeIn">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
@@ -489,7 +483,6 @@ export function InternatPage() {
                   </div>
                 )}
               </div>
-
               <div className="flex items-center gap-2 shrink-0">
                 {editingPeriodeId === selectedPeriode.id ? (
                   <button 
@@ -508,7 +501,6 @@ export function InternatPage() {
                 )}
               </div>
             </div>
-
             <div className="pt-3 border-t border-lavender-100 dark:border-slate-700 space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold text-slateindigo-800 dark:text-slate-200 flex items-center gap-1.5">
@@ -521,7 +513,6 @@ export function InternatPage() {
                   <Plus className="w-3 h-3" /> Ajouter une note
                 </button>
               </div>
-
               <div className="flex flex-wrap gap-2.5 py-1">
                 {notes.filter(n => n.periodeId === selectedPeriode.id).map((note) => (
                   <div
@@ -573,7 +564,6 @@ export function InternatPage() {
                 <h4 className="text-xs font-bold text-slateindigo-700 dark:text-lavender-300 mb-2 uppercase tracking-wide">Contenu</h4>
                 <p className="text-xs text-slateindigo-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{activeNoteModal.content}</p>
               </div>
-
               {activeNoteModal.imageUrl ? (
                 <div className="rounded-2xl overflow-hidden border border-lavender-200 dark:border-slate-700 bg-black/5 flex items-center justify-center max-h-[300px]">
                   <img src={activeNoteModal.imageUrl} alt="Note attachment" className="w-full h-full object-contain max-h-[300px]" />
@@ -590,7 +580,6 @@ export function InternatPage() {
       </Modal>
 
       <div className="bg-white dark:bg-[#1E293B]/80 p-5 rounded-3xl shadow-clay border border-lavender-100/50 dark:border-slate-700/60 space-y-4">
-        
         <div className="bg-lavender-50 dark:bg-slate-800/80 text-lavender-700 dark:text-lavender-300 px-4 py-2.5 rounded-2xl font-medium text-xs sm:text-sm border border-lavender-200/60 dark:border-slate-700 flex items-center justify-between gap-2 shadow-sm">
           <div className="flex items-center gap-2 min-w-0">
             <Stethoscope className="w-4 h-4 text-lavender-600 dark:text-lavender-400 shrink-0" />
@@ -601,7 +590,6 @@ export function InternatPage() {
             <span>{remainingDays} jours restants</span>
           </div>
         </div>
-
         <div>
           <div className="flex items-center justify-between mb-3">
             <button
@@ -620,13 +608,11 @@ export function InternatPage() {
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-
           <div className="grid grid-cols-7 gap-1 mb-1">
             {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map((d) => (
               <div key={d} className="text-center text-[11px] font-semibold text-slateindigo-400 dark:text-slate-400 py-1">{d}</div>
             ))}
           </div>
-
           <div className="grid grid-cols-7 gap-1">
             {days.map((dateStr, idx) => {
               if (!dateStr) return <div key={idx} />;
@@ -672,7 +658,6 @@ export function InternatPage() {
             })}
           </div>
         </div>
-
         <div className="bg-lavender-50/50 dark:bg-slate-800/50 p-3 rounded-2xl flex flex-wrap gap-4 items-center border border-lavender-100/60 dark:border-slate-700/50">
           {Object.entries(EVENT_CONFIG).map(([type, cfg]) => {
             const Icon = cfg.icon;
@@ -684,7 +669,6 @@ export function InternatPage() {
             );
           })}
         </div>
-
         <div className="space-y-2.5 pt-1">
           <h3 className="text-xs font-bold text-slateindigo-700 dark:text-slate-100">Prochains Événements & Gardes</h3>
           <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
@@ -717,10 +701,8 @@ export function InternatPage() {
             )}
           </div>
         </div>
-
       </div>
-
-      {/* Add / Edit Note Modal */}
+      
       <Modal open={showAddNoteModal} onClose={() => setShowAddNoteModal(false)} title={editingNoteId ? `Modifier la note (${selectedPeriode?.name})` : `Ajouter une note (${selectedPeriode?.name})`}>
         <div className="space-y-4">
           <div>
@@ -743,7 +725,6 @@ export function InternatPage() {
               placeholder="Écrivez vos notes ici..."
             />
           </div>
-
           <div>
             <label className="text-xs font-semibold text-slateindigo-600 dark:text-slate-200 mb-1.5 block">Image / Pièce jointe</label>
             {uploadedImagePreview ? (
@@ -767,7 +748,6 @@ export function InternatPage() {
               </label>
             )}
           </div>
-
           <button onClick={handleSaveNote} className="w-full bg-lavender-600 hover:bg-lavender-700 text-white p-3 rounded-2xl text-sm font-medium shadow-clay-sm transition-all">
             {editingNoteId ? 'Mettre à jour la note' : 'Enregistrer la note'}
           </button>
@@ -812,7 +792,6 @@ export function InternatPage() {
           </button>
         </div>
       </Modal>
-
     </div>
   );
 }

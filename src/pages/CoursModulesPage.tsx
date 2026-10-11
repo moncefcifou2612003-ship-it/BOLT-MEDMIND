@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Plus, ChevronDown, ChevronUp, Check, Trash2, Edit2 } from 'lucide-react';
-import { supabase } from '../lib/supabase'; // تأكد بلي المسار صحيح نحو ملف الـ supabase client تاعك
+import { supabase } from '../lib/supabase';
 
 export interface LessonItem {
   id: string;
@@ -39,16 +39,18 @@ export function CoursModulesPage() {
     }
   };
 
-  // جلب البيانات من Supabase عند الفتح مع دعم الـ Test Account والـ user_id
+  // جلب البيانات من Supabase وتصفيتها حصرياً بـ user_id الخاص بالمستخدم الحالي
   const fetchModulesAndLessons = async () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id;
+      const userId = user?.id || null;
 
       let modulesQuery = supabase.from('modules').select('*');
       if (userId) {
         modulesQuery = modulesQuery.eq('user_id', userId);
+      } else {
+        modulesQuery = modulesQuery.is('user_id', null);
       }
       const { data: modulesData, error: modulesError } = await modulesQuery;
       if (modulesError) throw modulesError;
@@ -56,6 +58,8 @@ export function CoursModulesPage() {
       let lessonsQuery = supabase.from('lessons').select('*');
       if (userId) {
         lessonsQuery = lessonsQuery.eq('user_id', userId);
+      } else {
+        lessonsQuery = lessonsQuery.is('user_id', null);
       }
       const { data: lessonsData, error: lessonsError } = await lessonsQuery;
       if (lessonsError) throw lessonsError;
@@ -96,20 +100,17 @@ export function CoursModulesPage() {
     fetchModulesAndLessons();
   }, []);
 
-  // إرسال إشارة التحديث لباقي المكونات
   const notifyModulesChanged = (updatedModules: ModuleItem[]) => {
     window.dispatchEvent(new CustomEvent('medmind_modules_changed', { detail: updatedModules }));
   };
 
   const [expandedId, setExpandedId] = useState<string | null>('1');
-  
   const [isAddingModule, setIsAddingModule] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
   const [newModuleName, setNewModuleName] = useState('');
   const [newModuleCategory, setNewModuleCategory] = useState<'biologique' | 'clinique'>('clinique');
   const [newModuleImportance, setNewModuleImportance] = useState<'important' | 'moyen' | 'moins'>('important');
   const [newModuleDifficulty, setNewModuleDifficulty] = useState<'facile' | 'moyen' | 'difficile' | ''>('');
-
   const [addingLessonToModuleId, setAddingLessonToModuleId] = useState<string | null>(null);
   const [editingLesson, setEditingLesson] = useState<{ moduleId: string; lesson: LessonItem } | null>(null);
   const [newLessonTitle, setNewLessonTitle] = useState('');
@@ -119,7 +120,6 @@ export function CoursModulesPage() {
   const handleSaveModule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newModuleName.trim()) return;
-
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id || null;
@@ -134,7 +134,6 @@ export function CoursModulesPage() {
             difficulty: newModuleDifficulty || null
           })
           .eq('id', editingModuleId);
-
         if (error) throw error;
 
         const updated = modules.map(mod => {
@@ -163,7 +162,6 @@ export function CoursModulesPage() {
           importance: newModuleImportance,
           difficulty: newModuleDifficulty || null
         };
-
         const { error } = await supabase.from('modules').insert([newModPayload]);
         if (error) throw error;
 
@@ -175,13 +173,11 @@ export function CoursModulesPage() {
           difficulty: newModuleDifficulty || undefined,
           lessons: []
         };
-
         const updated = [...modules, newMod].sort((a, b) => getImportanceWeight(b.importance) - getImportanceWeight(a.importance));
         setModules(updated);
         notifyModulesChanged(updated);
         setIsAddingModule(false);
       }
-
       setNewModuleName('');
       setNewModuleImportance('important');
       setNewModuleDifficulty('');
@@ -206,7 +202,6 @@ export function CoursModulesPage() {
       try {
         const { error } = await supabase.from('modules').delete().eq('id', moduleId);
         if (error) throw error;
-
         const updated = modules.filter(m => m.id !== moduleId);
         setModules(updated);
         notifyModulesChanged(updated);
@@ -219,7 +214,6 @@ export function CoursModulesPage() {
   const handleSaveLesson = async (moduleId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!newLessonTitle.trim()) return;
-
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id || null;
@@ -234,7 +228,6 @@ export function CoursModulesPage() {
             difficulty: newLessonDifficulty || null
           })
           .eq('id', lessonId);
-
         if (error) throw error;
 
         const updated = modules.map(mod => {
@@ -257,7 +250,6 @@ export function CoursModulesPage() {
           }
           return mod;
         });
-
         setModules(updated);
         notifyModulesChanged(updated);
       } else {
@@ -273,7 +265,6 @@ export function CoursModulesPage() {
           q1: false, q2: false, q3: false,
           resume: false
         };
-
         const { error } = await supabase.from('lessons').insert([lessonPayload]);
         if (error) throw error;
 
@@ -286,7 +277,6 @@ export function CoursModulesPage() {
           q1: false, q2: false, q3: false,
           resume: false
         };
-
         const updated = modules.map(mod => {
           if (mod.id === moduleId) {
             const updatedLessons = [...mod.lessons, newLessonItem];
@@ -297,11 +287,9 @@ export function CoursModulesPage() {
           }
           return mod;
         });
-
         setModules(updated);
         notifyModulesChanged(updated);
       }
-
       resetLessonForm();
     } catch (error) {
       console.error('Error saving lesson:', error);
@@ -321,7 +309,6 @@ export function CoursModulesPage() {
       try {
         const { error } = await supabase.from('lessons').delete().eq('id', lessonId);
         if (error) throw error;
-
         const updated = modules.map(mod => {
           if (mod.id === moduleId) {
             return {
@@ -331,7 +318,6 @@ export function CoursModulesPage() {
           }
           return mod;
         });
-
         setModules(updated);
         notifyModulesChanged(updated);
       } catch (error) {
@@ -352,15 +338,12 @@ export function CoursModulesPage() {
     const targetModule = modules.find(m => m.id === moduleId);
     const targetLesson = targetModule?.lessons.find(l => l.id === lessonId);
     if (!targetLesson) return;
-
     const newValue = !targetLesson[field];
-
     try {
       const { error } = await supabase
         .from('lessons')
         .update({ [field]: newValue })
         .eq('id', lessonId);
-
       if (error) throw error;
 
       const updated = modules.map(mod => {
@@ -377,7 +360,6 @@ export function CoursModulesPage() {
         }
         return mod;
       });
-
       setModules(updated);
       notifyModulesChanged(updated);
     } catch (error) {
@@ -387,15 +369,12 @@ export function CoursModulesPage() {
 
   const calculateModuleProgress = (lessons: LessonItem[]) => {
     if (lessons.length === 0) return 0;
-    
     let totalMaxScore = 0;
     let earnedScore = 0;
-
     lessons.forEach(l => {
       const weight = getImportanceWeight(l.importance);
       const lessonMaxScore = 7 * weight; 
       totalMaxScore += lessonMaxScore;
-
       let lessonEarned = 0;
       if (l.c1) lessonEarned += weight;
       if (l.c2) lessonEarned += weight;
@@ -404,10 +383,8 @@ export function CoursModulesPage() {
       if (l.q2) lessonEarned += weight;
       if (l.q3) lessonEarned += weight;
       if (l.resume) lessonEarned += weight;
-
       earnedScore += lessonEarned;
     });
-
     if (totalMaxScore === 0) return 0;
     return Math.round((earnedScore / totalMaxScore) * 100);
   };
@@ -457,7 +434,6 @@ export function CoursModulesPage() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Modules</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Shared master curriculum & smart planning setup</p>
         </div>
-
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
             <button 
@@ -479,7 +455,6 @@ export function CoursModulesPage() {
               Clinique
             </button>
           </div>
-
           <button 
             onClick={() => {
               setEditingModuleId(null);
@@ -513,7 +488,6 @@ export function CoursModulesPage() {
             <option value="clinique">Clinique</option>
             <option value="biologique">Biologique</option>
           </select>
-
           <select 
             value={newModuleImportance}
             onChange={(e) => setNewModuleImportance(e.target.value as any)}
@@ -523,7 +497,6 @@ export function CoursModulesPage() {
             <option value="moyen">Moyen</option>
             <option value="moins">Moins important</option>
           </select>
-
           <select 
             value={newModuleDifficulty}
             onChange={(e) => setNewModuleDifficulty(e.target.value as any)}
@@ -534,7 +507,6 @@ export function CoursModulesPage() {
             <option value="moyen">Intermédiaire</option>
             <option value="facile">Facile</option>
           </select>
-
           <div className="flex gap-2 w-full sm:w-auto">
             <button type="submit" className="flex-1 sm:flex-none bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700">
               {editingModuleId ? 'Modifier' : 'Ajouter'}
@@ -550,7 +522,7 @@ export function CoursModulesPage() {
             <BookOpen className="w-6 h-6" />
           </div>
           <h3 className="text-base font-semibold text-slate-800 dark:text-white mb-1">No modules yet.</h3>
-          <p className="text-sm text-slate-400">Click "Add Module" to create the shared curriculum.</p>
+          <p className="text-sm text-slate-400">Click "Add Module" to create your curriculum.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -559,7 +531,6 @@ export function CoursModulesPage() {
             const sortedLessons = [...module.lessons].sort((a, b) => 
               getImportanceWeight(b.importance) - getImportanceWeight(a.importance)
             );
-
             return (
               <div key={module.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition">
                 <div 
@@ -581,7 +552,6 @@ export function CoursModulesPage() {
                       </span>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
                     <div className="flex flex-col items-end w-36 sm:w-44">
                       <div className="flex justify-between w-full text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
@@ -595,7 +565,6 @@ export function CoursModulesPage() {
                         ></div>
                       </div>
                     </div>
-
                     <div className="flex items-center gap-2 ps-4 border-s border-slate-200 dark:border-slate-800">
                       <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                         <button 
@@ -613,12 +582,10 @@ export function CoursModulesPage() {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-
                       {expandedId === module.id ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                     </div>
                   </div>
                 </div>
-
                 {expandedId === module.id && (
                   <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 p-4 space-y-3">
                     {sortedLessons.map(lesson => (
@@ -646,7 +613,6 @@ export function CoursModulesPage() {
                                 ))}
                               </div>
                             </div>
-
                             <div className="flex flex-col items-center">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">QCMs</span>
                               <div className="flex items-center gap-1">
@@ -662,7 +628,6 @@ export function CoursModulesPage() {
                                 ))}
                               </div>
                             </div>
-
                             <div className="flex flex-col items-center">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Résumé</span>
                               <button 
@@ -674,7 +639,6 @@ export function CoursModulesPage() {
                               </button>
                             </div>
                           </div>
-
                           <div className="flex items-center gap-1 border-s ps-3 border-slate-200 dark:border-slate-800">
                             <button 
                               onClick={() => startEditLesson(module.id, lesson)}
@@ -694,7 +658,6 @@ export function CoursModulesPage() {
                         </div>
                       </div>
                     ))}
-
                     {addingLessonToModuleId === module.id ? (
                       <form onSubmit={(e) => handleSaveLesson(module.id, e)} className="flex flex-col sm:flex-row gap-2 mt-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-indigo-100 dark:border-slate-800 items-center">
                         <input 
@@ -705,7 +668,6 @@ export function CoursModulesPage() {
                           className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs focus:outline-none focus:border-indigo-500 w-full sm:w-auto"
                           autoFocus
                         />
-                        
                         <select 
                           value={newLessonImportance}
                           onChange={(e) => setNewLessonImportance(e.target.value as any)}
@@ -715,7 +677,6 @@ export function CoursModulesPage() {
                           <option value="moyen">Moyen</option>
                           <option value="moins">Moins important</option>
                         </select>
-
                         <select 
                           value={newLessonDifficulty}
                           onChange={(e) => setNewLessonDifficulty(e.target.value as any)}
@@ -726,7 +687,6 @@ export function CoursModulesPage() {
                           <option value="moyen">Intermédiaire</option>
                           <option value="facile">Facile</option>
                         </select>
-
                         <div className="flex gap-2 w-full sm:w-auto">
                           <button type="submit" className="flex-1 sm:flex-none bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-medium">
                             {editingLesson ? 'Modifier' : 'Ajouter'}

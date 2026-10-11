@@ -26,7 +26,7 @@ export function NotesVaultPage() {
   const [newNote, setNewNote] = useState({ content: '', tag: 'piege' as NoteTag, lessonId: '', moduleId: '' });
   const [loading, setLoading] = useState(true);
   const [flashcardQuiz, setFlashcardQuiz] = useState<{ note: CriticalNote; answer: string } | null>(null);
-
+  
   // Edit Note State
   const [editingNote, setEditingNote] = useState<CriticalNote | null>(null);
 
@@ -34,7 +34,6 @@ export function NotesVaultPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = profile?.id || user?.id || null;
-
       let query = supabase.from('notes_importantes').select('*').order('created_at', { ascending: false });
       
       if (userId) {
@@ -42,7 +41,6 @@ export function NotesVaultPage() {
       } else {
         query = query.is('user_id', null);
       }
-
       const { data, error } = await query;
       if (error) {
         console.error('Error fetching notes:', error);
@@ -55,14 +53,48 @@ export function NotesVaultPage() {
   }, [profile?.id]);
 
   const fetchModules = useCallback(async () => {
-    const { data } = await supabase.from('modules').select('*').order('name');
-    if (data) setModules(data as Module[]);
-  }, []);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = profile?.id || user?.id || null;
+      let query = supabase.from('modules').select('*').order('name');
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else {
+        query = query.is('user_id', null);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching modules:', error);
+        return;
+      }
+      if (data) setModules(data as Module[]);
+    } catch (err) {
+      console.error('Exception fetching modules:', err);
+    }
+  }, [profile?.id]);
 
   const fetchLessons = useCallback(async () => {
-    const { data } = await supabase.from('lessons').select('*').order('title');
-    if (data) setLessons(data as Lesson[]);
-  }, []);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = profile?.id || user?.id || null;
+      let query = supabase.from('lessons').select('*').order('title');
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else {
+        query = query.is('user_id', null);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching lessons:', error);
+        return;
+      }
+      if (data) setLessons(data as Lesson[]);
+    } catch (err) {
+      console.error('Exception fetching lessons:', err);
+    }
+  }, [profile?.id]);
 
   useEffect(() => {
     Promise.all([fetchNotes(), fetchModules(), fetchLessons()]).finally(() => setLoading(false));
@@ -74,7 +106,6 @@ export function NotesVaultPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = profile?.id || user?.id || null;
       const generatedId = Date.now().toString();
-
       const { data, error } = await supabase
         .from('notes_importantes')
         .insert({
@@ -89,12 +120,10 @@ export function NotesVaultPage() {
         })
         .select()
         .single();
-
       if (error) { 
         showToast(error.message, 'error'); 
         return; 
       }
-
       setNotes((prev) => [data as CriticalNote, ...prev]);
       setNewNote({ content: '', tag: 'piege', lessonId: '', moduleId: '' });
       showToast('Note saved successfully', 'success');
@@ -103,7 +132,6 @@ export function NotesVaultPage() {
     }
   };
 
-  // وظيفة تحديث الملاحظة في قاعدة البيانات
   const updateNote = async () => {
     if (!editingNote || !editingNote.content.trim()) return;
     try {
@@ -117,12 +145,10 @@ export function NotesVaultPage() {
           module_id: editingNote.module_id || null,
         })
         .eq('id', editingNote.id);
-
       if (error) {
         showToast(error.message, 'error');
         return;
       }
-
       setNotes((prev) => prev.map((n) => (n.id === editingNote.id ? editingNote : n)));
       setEditingNote(null);
       showToast('Note updated successfully', 'success');
@@ -145,8 +171,7 @@ export function NotesVaultPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = profile?.id || user?.id || null;
-
-      const answer = note.content; // تم تعديلها سابقاً لتنتقل للإجابة مباشرة
+      const answer = note.content;
       const question = ""; 
       
       const { error } = await supabase.from('flashcards').insert({
@@ -176,7 +201,6 @@ export function NotesVaultPage() {
 
   return (
     <div className="space-y-6">
-      {/* Quick add bar */}
       <div className="clay-card p-6 animate-slide-up">
         <div className="flex items-center gap-2 mb-4">
           <Zap className="w-5 h-5 text-lavender-600" />
@@ -226,7 +250,6 @@ export function NotesVaultPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="clay-card p-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slateindigo-400" />
@@ -258,7 +281,6 @@ export function NotesVaultPage() {
         </select>
       </div>
 
-      {/* Notes grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {filteredNotes.length === 0 ? (
           <div className="col-span-full clay-card p-12 text-center">
@@ -283,7 +305,6 @@ export function NotesVaultPage() {
                       {tagCfg.emoji} {tagCfg.label}
                     </span>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* زر التعديل */}
                       <button
                         onClick={() => setEditingNote(note)}
                         className="p-1.5 rounded-lg text-lavender-600 hover:bg-lavender-500/10"
@@ -320,7 +341,6 @@ export function NotesVaultPage() {
         )}
       </div>
 
-      {/* نافذة التعديل المنبثقة (Edit Modal) */}
       {editingNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="absolute inset-0 bg-slateindigo-900/30 backdrop-blur-sm" onClick={() => setEditingNote(null)} />
@@ -366,28 +386,6 @@ export function NotesVaultPage() {
               </div>
               <button onClick={updateNote} className="clay-button w-full">Save Changes</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Flashcard quiz popup */}
-      {flashcardQuiz && (
-        <div className="fixed bottom-6 right-6 z-50 clay-card p-6 max-w-sm animate-slide-up">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="w-5 h-5 text-lavender-600" />
-            <h4 className="font-bold text-slateindigo-700 dark:text-slateindigo-100">Quick Recall</h4>
-            <button onClick={() => setFlashcardQuiz(null)} className="ml-auto text-slateindigo-400 hover:text-slateindigo-700">×</button>
-          </div>
-          <p className="text-sm text-slateindigo-600 dark:text-slateindigo-200 mb-3">{flashcardQuiz.answer}</p>
-          <p className="text-xs text-slateindigo-400 mb-3">Can you recall the full context of this note?</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => { generateFlashcard(flashcardQuiz.note); setFlashcardQuiz(null); }}
-              className="clay-button text-sm flex-1"
-            >
-              Save as Flashcard
-            </button>
-            <button onClick={() => setFlashcardQuiz(null)} className="clay-button-secondary text-sm">Dismiss</button>
           </div>
         </div>
       )}

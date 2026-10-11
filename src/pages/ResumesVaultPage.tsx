@@ -5,10 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { Modal } from '@/components/ui/Modal';
 import type { Resume, ResumeFormat, Module, Lesson } from '@/lib/types';
 import {
-  FileText, Plus, Trash2, File, Image, Edit3, Search, Upload, BookOpen, Edit2,
+  FileText, Plus, Trash2, File, Image, Edit3, Search, Upload, BookOpen, Edit2, ExternalLink,
 } from 'lucide-react';
 
-// تعريف نوع بيانات دقيق وموسع لتجنب أي تعارض مع TypeScript
 type ResumeItem = Resume & {
   module_id?: string | null;
   lesson_id?: string | null;
@@ -22,14 +21,11 @@ export function ResumesVaultPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [search, setSearch] = useState('');
   
-  // فلاتر البحث
   const [filterModule, setFilterModule] = useState<string>('all');
   const [filterLesson, setFilterLesson] = useState<string>('all');
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingResume, setEditingResume] = useState<ResumeItem | null>(null);
   
-  // حالة إضافة ملخص جديد
   const [newResume, setNewResume] = useState<{
     format: ResumeFormat;
     title: string;
@@ -48,12 +44,10 @@ export function ResumesVaultPage() {
   
   const [loading, setLoading] = useState(true);
 
-  // جلب الملخصات
   const fetchResumes = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = profile?.id || user?.id || null;
-
       let query = supabase.from('resumes').select('*').order('created_at', { ascending: false });
       
       if (userId) {
@@ -61,7 +55,6 @@ export function ResumesVaultPage() {
       } else {
         query = query.is('user_id', null);
       }
-
       const { data, error } = await query;
       if (error) {
         console.error('Error fetching resumes:', error);
@@ -73,15 +66,51 @@ export function ResumesVaultPage() {
     }
   }, [profile?.id]);
 
+  // جلب الموديولات الخاصة بالمستخدم الحالي فقط
   const fetchModules = useCallback(async () => {
-    const { data } = await supabase.from('modules').select('*').order('name');
-    if (data) setModules(data as Module[]);
-  }, []);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = profile?.id || user?.id || null;
+      let query = supabase.from('modules').select('*').order('name');
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else {
+        query = query.is('user_id', null);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching modules:', error);
+        return;
+      }
+      if (data) setModules(data as Module[]);
+    } catch (err) {
+      console.error('Exception fetching modules:', err);
+    }
+  }, [profile?.id]);
 
+  // جلب الدروس الخاصة بالمستخدم الحالي فقط
   const fetchLessons = useCallback(async () => {
-    const { data } = await supabase.from('lessons').select('*').order('title');
-    if (data) setLessons(data as Lesson[]);
-  }, []);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = profile?.id || user?.id || null;
+      let query = supabase.from('lessons').select('*').order('title');
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else {
+        query = query.is('user_id', null);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching lessons:', error);
+        return;
+      }
+      if (data) setLessons(data as Lesson[]);
+    } catch (err) {
+      console.error('Exception fetching lessons:', err);
+    }
+  }, [profile?.id]);
 
   useEffect(() => {
     Promise.all([fetchResumes(), fetchModules(), fetchLessons()]).finally(() => setLoading(false));
@@ -91,12 +120,10 @@ export function ResumesVaultPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = profile?.id || user?.id || null;
-
       if (!newResume.title.trim()) {
         showToast('Please enter a title', 'error');
         return;
       }
-
       const { data, error } = await supabase
         .from('resumes')
         .insert({
@@ -110,7 +137,6 @@ export function ResumesVaultPage() {
         })
         .select()
         .single();
-
       if (error) { showToast(error.message, 'error'); return; }
       setResumes((prev) => [data as ResumeItem, ...prev]);
       setNewResume({ format: 'text', title: '', content: '', moduleId: '', lessonId: '', fileUrl: '' });
@@ -121,7 +147,6 @@ export function ResumesVaultPage() {
     }
   };
 
-  // دالة تحديث الملخص الموجود
   const saveUpdatedResume = async () => {
     if (!editingResume) return;
     try {
@@ -134,12 +159,10 @@ export function ResumesVaultPage() {
           lesson_id: editingResume.lesson_id || null,
         })
         .eq('id', editingResume.id);
-
       if (error) {
         showToast(error.message, 'error');
         return;
       }
-
       setResumes((prev) =>
         prev.map((r) => (r.id === editingResume.id ? editingResume : r))
       );
@@ -168,7 +191,6 @@ export function ResumesVaultPage() {
     showToast('File ready to attach', 'success');
   };
 
-  // تصفية الملخصات
   const filteredResumes = resumes.filter((r) => {
     if (filterModule !== 'all' && r.module_id !== filterModule) return false;
     if (filterLesson !== 'all' && r.lesson_id !== filterLesson) return false;
@@ -188,7 +210,6 @@ export function ResumesVaultPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header & Search */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slateindigo-400" />
@@ -205,7 +226,6 @@ export function ResumesVaultPage() {
         </button>
       </div>
 
-      {/* Filters Bar */}
       <div className="clay-card p-4 flex flex-col sm:flex-row gap-3">
         <div className="flex items-center gap-2 text-sm font-medium text-slateindigo-600 dark:text-slateindigo-200">
           <BookOpen className="w-4 h-4 text-lavender-600" /> Filters:
@@ -233,7 +253,6 @@ export function ResumesVaultPage() {
         </select>
       </div>
 
-      {/* Resumes grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredResumes.length === 0 ? (
           <div className="col-span-full clay-card p-12 text-center">
@@ -290,9 +309,18 @@ export function ResumesVaultPage() {
                     </p>
                   )}
                 </div>
-
-                {/* أزرار التعديل والحذف لكل كارت */}
                 <div className="flex items-center gap-2 pt-3 border-t border-lavender-100 dark:border-slateindigo-700/50">
+                  {resume.file_url && (
+                    <a
+                      href={resume.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="clay-button-secondary py-1.5 px-3 text-xs flex items-center justify-center gap-1 text-emerald-600 dark:text-emerald-400"
+                      title="Open file"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Open
+                    </a>
+                  )}
                   <button
                     onClick={() => setEditingResume(resume)}
                     className="clay-button-secondary flex-1 py-1.5 px-3 text-xs flex items-center justify-center gap-1 text-lavender-600 dark:text-lavender-300"
@@ -312,7 +340,6 @@ export function ResumesVaultPage() {
         )}
       </div>
 
-      {/* Add modal */}
       <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Resume" size="lg">
         <div className="space-y-4">
           <div>
@@ -345,7 +372,6 @@ export function ResumesVaultPage() {
               placeholder="e.g., Cardiologie - Insuffisance cardiaque"
             />
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-slateindigo-600 dark:text-slateindigo-200 mb-1.5 block">Module</label>
@@ -372,7 +398,6 @@ export function ResumesVaultPage() {
               </select>
             </div>
           </div>
-
           {newResume.format === 'text' && (
             <div>
               <label className="text-sm font-medium text-slateindigo-600 dark:text-slateindigo-200 mb-1.5 block">Content (Markdown supported)</label>
@@ -411,7 +436,6 @@ export function ResumesVaultPage() {
         </div>
       </Modal>
 
-      {/* Edit modal */}
       <Modal open={!!editingResume} onClose={() => setEditingResume(null)} title="Edit Resume" size="lg">
         {editingResume && (
           <div className="space-y-4">
@@ -424,7 +448,6 @@ export function ResumesVaultPage() {
                 className="clay-input"
               />
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-slateindigo-600 dark:text-slateindigo-200 mb-1.5 block">Module</label>
@@ -451,7 +474,6 @@ export function ResumesVaultPage() {
                 </select>
               </div>
             </div>
-
             {editingResume.format === 'text' && (
               <div>
                 <label className="text-sm font-medium text-slateindigo-600 dark:text-slateindigo-200 mb-1.5 block">Content</label>
@@ -462,13 +484,11 @@ export function ResumesVaultPage() {
                 />
               </div>
             )}
-
             {editingResume.format === 'image' && editingResume.file_url && (
               <div className="rounded-2xl overflow-hidden bg-lavender-50 dark:bg-slateindigo-800 p-4 flex items-center justify-center min-h-[200px]">
                 <img src={editingResume.file_url} alt={editingResume.title || ''} className="max-w-full max-h-[300px] object-contain" />
               </div>
             )}
-
             {editingResume.format === 'pdf' && editingResume.file_url && (
               <div className="clay-card-sm p-6 text-center">
                 <File className="w-10 h-10 text-coral-500 mx-auto mb-2" />
@@ -482,7 +502,6 @@ export function ResumesVaultPage() {
                 </a>
               </div>
             )}
-
             <div className="flex gap-2 pt-2">
               <button onClick={saveUpdatedResume} className="clay-button flex-1">
                 Save Changes
